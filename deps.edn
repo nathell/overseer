@@ -1,0 +1,10 @@
+{:paths ["src"]
+ :deps  {aysylu/loom           {:mvn/version "1.0.0"}
+         clj-json/clj-json     {:mvn/version "0.5.3"}
+         clj-time/clj-time     {:mvn/version "0.12.2"}
+         com.taoensso/timbre   {:mvn/version "4.0.2"}
+         com.velisco/herbert   {:mvn/version "0.7.0"}
+         honeysql/honeysql     {:mvn/version "0.8.2"}
+         io.framed/std         {:mvn/version "0.2.5"}
+         org.clojure/java.jdbc {:mvn/version "0.7.0-alpha3"}
+         raven-clj/raven-clj   {:mvn/version "1.5.2"}}}
