@@ -11,7 +11,8 @@
             (loom graph)
             (overseer
               [core :as core]
-              [util :as util])))
+              [util :as util])
+            [taoensso.timbre :as timbre]))
 
 (def status-code
   {:unstarted 0
@@ -75,14 +76,16 @@
         set-map'
         (merge {:lock_version (inc lock-version) :updated_at (clj-time/now)} set-map)
 
-        num-rows-updated
-        (->> {:update :overseer_jobs
-              :set set-map'
-              :where (into [:and] (for [[k v] where-map'] [:= k v]))}
-             sql/format
-             (j/db-do-prepared db-spec)
-             first)]
+        sql (sql/format {:update :overseer_jobs
+                         :set set-map'
+                         :where (into [:and] (for [[k v] where-map'] [:= k v]))})
+
+        resp (j/db-do-prepared db-spec sql)
+
+        num-rows-updated (first resp)]
     ; If no rows updated - stale object, return nil
+    (when-not (= 1 num-rows-updated)
+      (timbre/warn "CAS failure, SQL:" sql ", jdbc returned:" resp))
     (when (= 1 num-rows-updated)
       job-id)))
 
