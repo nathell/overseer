@@ -84,6 +84,7 @@
 
         num-rows-updated (first resp)]
     ; If no rows updated - stale object, return nil
+    (timbre/info "update-job where-map:" where-map' "set-map:" set-map')
     (when-not (= 1 num-rows-updated)
       (timbre/warn "CAS failure, SQL:" sql ", jdbc returned:" resp))
     (when (= 1 num-rows-updated)
@@ -194,12 +195,14 @@
     (let [where-map {:status (:unstarted status-code)}
           set-map {:status (:started status-code)
                    :heartbeat (core/heartbeat)}]
+      (timbre/info "Calling update-job from reserve-job")
       (when (update-job db-spec job-id where-map set-map)
         (query-job db-spec job-id))))
 
   (finish-job [this job-id]
     (let [where-map {:status (:started status-code)}
           set-map {:status (:finished status-code)}]
+      (timbre/info "Calling update-job from finish-job")
       (when-not (update-job db-spec job-id where-map set-map)
         (throw (ex-info "Job update failed" {:job/id job-id})))))
 
@@ -207,10 +210,12 @@
     (let [where-map {:status (:started status-code)}
           set-map {:status (:failed status-code)
                    :failure (pr-str failure)}]
+      (timbre/info "Calling update-job from fail-job")
       (when-not (update-job db-spec job-id where-map set-map)
         (throw (ex-info "Job update failed" {:job/id job-id})))))
 
   (heartbeat-job [this job-id]
+    (timbre/info "Calling update-job from heartbeat-job")
     (when-not (update-job db-spec job-id {} {:heartbeat (core/heartbeat)})
       (throw (ex-info "Job update failed" {:job/id job-id}))))
 
@@ -228,6 +233,7 @@
           set-map {:status (:unstarted status-code)
                    :heartbeat (core/heartbeat)}]
       ; Okay to ignore CAS failure here
+      (timbre/info "Calling update-job from reset-job")
       (update-job db-spec job-id where-map set-map)))
 
   (jobs-ready [this]
