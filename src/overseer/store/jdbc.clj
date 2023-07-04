@@ -80,11 +80,12 @@
                          :set set-map'
                          :where (into [:and] (for [[k v] where-map'] [:= k v]))})
 
+        _ (timbre/info "update-job: about to execute SQL:" sql)
         resp (j/db-do-prepared db-spec sql)
 
         num-rows-updated (first resp)]
     ; If no rows updated - stale object, return nil
-    (timbre/info "update-job where-map:" where-map' "set-map:" set-map')
+    (timbre/info "update-job: SQL executed; where-map:" where-map' "set-map:" set-map')
     (when-not (= 1 num-rows-updated)
       (timbre/warn "CAS failure, SQL:" sql ", jdbc returned:" resp))
     (when (= 1 num-rows-updated)

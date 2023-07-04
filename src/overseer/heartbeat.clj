@@ -25,7 +25,7 @@
       (when-let [{job-id :job/id} @current-job]
         (core/heartbeat-job store job-id))
       (Thread/sleep (config/heartbeat-sleep-time config))
-      (catch Exception ex
+      (catch Throwable ex
         (timbre/error ex)
         (when (config/monitor-shutdown? config)
           (System/exit 1))))))
