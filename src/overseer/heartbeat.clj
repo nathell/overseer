@@ -16,19 +16,38 @@
               [config :as config]
               [core :as core])))
 
+(defn- heartbeat-stack-trace? [st]
+  (seq
+   (filter #(string/starts-with? (.getClassName %) "overseer.heartbeat$start_heartbeat")
+           st)))
+
+(defn- heartbeat-thread-stack-trace []
+  (with-out-str
+    (some->
+     (for [[t st] (Thread/getAllStackTraces)
+           :when (and (string/starts-with? (.getName t) "clojure-agent-send-off-pool")
+                      (heartbeat-stack-trace? st))]
+       st)
+     first
+     vec
+     clojure.pprint/pprint)))
+
 (defn start-heartbeat
   "Start a process that will continually persist heartbeats via the DB
   `current-job` is an atom holding the currently running Job (at least its :job/id)"
   [config store current-job]
   (future-loop
-    (try
-      (when-let [{job-id :job/id} @current-job]
-        (core/heartbeat-job store job-id))
-      (Thread/sleep (config/heartbeat-sleep-time config))
-      (catch Throwable ex
-        (timbre/error ex)
-        (when (config/monitor-shutdown? config)
-          (System/exit 1))))))
+   (try
+     (timbre/info "heartbeat: new cycle")
+     (when-let [{job-id :job/id} @current-job]
+       (core/heartbeat-job store job-id))
+     (timbre/info "heartbeat: about to sleep")
+     (Thread/sleep (config/heartbeat-sleep-time config))
+     (timbre/info "heartbeat: after sleep")
+     (catch Throwable ex
+       (timbre/error ex)
+       (when (config/monitor-shutdown? config)
+         (System/exit 1))))))
 
 ;;
 
@@ -53,16 +72,17 @@
    heartbeats and reset them"
   [config store]
   (future-loop
-    (try
-      (let [thresh (liveness-threshold config (tcore/now))
-            job-ids (core/jobs-dead store thresh)]
-        (when (seq job-ids)
-          (timbre/warn (format "Found %s jobs with failed heartbeats" (count job-ids)))
-          (timbre/warn (str "Resetting: " (string/join ", " job-ids)))
-          (doseq [id job-ids]
-            (core/reset-job store id)))
-        (Thread/sleep (+ (config/heartbeat-sleep-time config) (sleep-stagger))))
-      (catch Exception ex
-        (timbre/error ex)
-        (when (config/monitor-shutdown? config)
-          (System/exit 1))))))
+   (try
+     (let [thresh (liveness-threshold config (tcore/now))
+           job-ids (core/jobs-dead store thresh)]
+       (when (seq job-ids)
+         (timbre/warn (format "Found %s jobs with failed heartbeats" (count job-ids)))
+         (timbre/warn (str "Heartbeat stack trace: " (heartbeat-thread-stack-trace)))
+         (timbre/warn (str "Resetting: " (string/join ", " job-ids)))
+         (doseq [id job-ids]
+           (core/reset-job store id)))
+       (Thread/sleep (+ (config/heartbeat-sleep-time config) (sleep-stagger))))
+     (catch Exception ex
+       (timbre/error ex)
+       (when (config/monitor-shutdown? config)
+         (System/exit 1))))))

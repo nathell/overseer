@@ -68,7 +68,10 @@
               are automatically added to the final where clause
   set-map - map of {keyword-column-name value} of new attributes to set"
   [db-spec job-id where-map set-map]
+  (timbre/info "update-job: query lock version")
   (let [lock-version (query-lock-version db-spec job-id)
+
+        _ (timbre/info "update-job: lock version:" lock-version)
 
         where-map'
         (merge {:id job-id :lock_version lock-version} where-map)
